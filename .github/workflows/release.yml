@@ -86,30 +86,37 @@ jobs:
         with:
           path: artifacts
 
-      - name: List artifacts
+      - name: Flatten artifacts with rename
+        # 把每个 artifact 子目录里的 binary 移到 /tmp/dist/ 下,用 artifact 自身的名字命名
+        # 用 mv 而非 cp 避免 same-file 错误;移到 /tmp 避免和源冲突
         run: |
-          echo "=== artifacts/ tree ==="
-          find artifacts/ -type f -exec ls -lh {} \;
-
-      - name: Generate SHA256SUMS (compute in-place, no flatten)
-        run: |
-          # 每个 artifact 是子目录,里面是 binary(可能是 graphify 或 graphify.exe)
-          # 我们用 'find' 遍历每个子目录,直接生成 SHA256SUMS
-          # 输出格式: <sha>  <basename-of-artifact-dir>/<filename>
-          : > artifacts/SHA256SUMS
+          rm -rf /tmp/dist && mkdir -p /tmp/dist
           for dir in artifacts/*/; do
             artifact_name=$(basename "$dir")
             file=$(find "$dir" -type f | head -1)
             if [ -n "$file" ]; then
-              # 生成 "<sha>  graphify-darwin-arm64/graphify" 这种格式
-              rel_path="${artifact_name}/$(basename "$file")"
-              (cd artifacts && sha256sum "$rel_path") >> artifacts/SHA256SUMS
-              echo "added: $rel_path"
+              # artifact_name 可能是 graphify-darwin-arm64 或 graphify-windows-x64.exe
+              # 直接用 artifact_name 作为目标文件名(.exe 后缀已含)
+              target="/tmp/dist/$artifact_name"
+              mv "$file" "$target"
+              echo "moved: $file -> $target"
             fi
           done
           echo ""
+          echo "=== /tmp/dist/ contents ==="
+          ls -lh /tmp/dist/
+
+      - name: Generate SHA256SUMS
+        working-directory: /tmp/dist
+        run: |
+          # 按字典序输出,便于查阅
+          for f in graphify-*; do
+            [ -f "$f" ] || continue
+            sha256sum "$f"
+          done > SHA256SUMS
+          echo ""
           echo "=== SHA256SUMS content ==="
-          cat artifacts/SHA256SUMS
+          cat SHA256SUMS
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -118,11 +125,11 @@ jobs:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            artifacts/graphify-darwin-arm64/*
-            artifacts/graphify-linux-arm64/*
-            artifacts/graphify-linux-x64/*
-            artifacts/graphify-windows-x64.exe/*
-            artifacts/SHA256SUMS
+            /tmp/dist/graphify-darwin-arm64
+            /tmp/dist/graphify-linux-arm64
+            /tmp/dist/graphify-linux-x64
+            /tmp/dist/graphify-windows-x64.exe
+            /tmp/dist/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
