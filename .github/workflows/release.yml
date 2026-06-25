@@ -89,34 +89,26 @@ jobs:
       - name: List artifacts
         run: |
           echo "=== artifacts/ tree ==="
-          ls -la artifacts/
-          echo ""
-          echo "=== all files ==="
           find artifacts/ -type f -exec ls -lh {} \;
 
-      - name: Flatten artifacts and generate SHA256SUMS
+      - name: Generate SHA256SUMS (compute in-place, no flatten)
         run: |
-          # 把每个 artifact 目录下的二进制拷贝成扁平文件名
-          # artifacts/graphify-darwin-arm64/graphify  →  artifacts/graphify-darwin-arm64
+          # 每个 artifact 是子目录,里面是 binary(可能是 graphify 或 graphify.exe)
+          # 我们用 'find' 遍历每个子目录,直接生成 SHA256SUMS
+          # 输出格式: <sha>  <basename-of-artifact-dir>/<filename>
+          : > artifacts/SHA256SUMS
           for dir in artifacts/*/; do
-            name=$(basename "$dir")
-            # 找目录下唯一一个文件
+            artifact_name=$(basename "$dir")
             file=$(find "$dir" -type f | head -1)
             if [ -n "$file" ]; then
-              cp "$file" "artifacts/$name"
-              echo "flattened: $file -> artifacts/$name"
+              # 生成 "<sha>  graphify-darwin-arm64/graphify" 这种格式
+              rel_path="${artifact_name}/$(basename "$file")"
+              (cd artifacts && sha256sum "$rel_path") >> artifacts/SHA256SUMS
+              echo "added: $rel_path"
             fi
           done
           echo ""
-          echo "=== after flatten ==="
-          ls -la artifacts/
-          echo ""
-          echo "=== SHA256SUMS ==="
-          # 只对扁平后的 graphify-* 算 sha256
-          for f in artifacts/graphify-*; do
-            [ -f "$f" ] || continue
-            sha256sum "$f" | sed 's|^artifacts/||'
-          done > artifacts/SHA256SUMS
+          echo "=== SHA256SUMS content ==="
           cat artifacts/SHA256SUMS
 
       - name: Create Release
@@ -126,10 +118,10 @@ jobs:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            artifacts/graphify-darwin-arm64
-            artifacts/graphify-linux-x64
-            artifacts/graphify-linux-arm64
-            artifacts/graphify-windows-x64.exe
+            artifacts/graphify-darwin-arm64/*
+            artifacts/graphify-linux-arm64/*
+            artifacts/graphify-linux-x64/*
+            artifacts/graphify-windows-x64.exe/*
             artifacts/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
