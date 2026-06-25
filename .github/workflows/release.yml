@@ -1,0 +1,133 @@
+name: Build and Release Binaries
+
+# 触发条件:打 v* tag 自动触发
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:  # 允许手动触发(便于调试)
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            asset_name: graphify-darwin-arm64
+            exe_name: graphify
+          - os: macos-13
+            arch: x64
+            asset_name: graphify-darwin-x64
+            exe_name: graphify
+          - os: ubuntu-22.04
+            arch: x64
+            asset_name: graphify-linux-x64
+            exe_name: graphify
+          - os: ubuntu-22.04
+            arch: arm64
+            asset_name: graphify-linux-arm64
+            exe_name: graphify
+          - os: windows-2022
+            arch: x64
+            asset_name: graphify-windows-x64.exe
+            exe_name: graphify.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.arch }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.arch }}-
+
+      - name: Install PyInstaller + graphify
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # 安装基础依赖(跳过可选依赖,降低打包体积)
+          pip install --no-deps -e .
+
+      - name: Build binary
+        run: pyinstaller --noconfirm graphify.spec
+
+      - name: Verify binary works
+        shell: bash
+        run: |
+          ./dist/${{ matrix.exe_name }} --version || ./dist/${{ matrix.exe_name }} --help | head -5
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: dist/${{ matrix.exe_name }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: |
+          ls -la artifacts/
+          echo "---"
+          find artifacts/ -type f -exec ls -lh {} \;
+
+      - name: Generate SHA256SUMS
+        working-directory: artifacts
+        run: |
+          # 找所有 graphify-* 文件(去除目录名前缀)
+          find . -type f -name 'graphify-*' -exec sha256sum {} \; | \
+            sed 's|^\./||' | \
+            sort -k2 > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/graphify-*
+            artifacts/**/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Notify build result
+    needs: [build, release]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Release: ${{ needs.release.result }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "❌ Build failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
