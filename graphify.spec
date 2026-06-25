@@ -66,7 +66,7 @@ exe = EXE(
     name='graphify',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,            # Strip symbols on linux/mac (smaller binary)
+    strip=False,           # Windows 上 strip=True 会导致 python311.dll 加载失败（已知问题）
     upx=False,             # UPX compression is unstable across platforms, skip
     upx_exclude=[],
     runtime_tmpdir=None,
