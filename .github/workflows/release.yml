@@ -14,13 +14,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macOS: 仅保留 Apple Silicon (主流)。Intel 用户可在 installer 里走降级路径
+          # 或通过 Rosetta 运行 arm64 二进制。
           - os: macos-14
             arch: arm64
             asset_name: graphify-darwin-arm64
-            exe_name: graphify
-          - os: macos-13
-            arch: x64
-            asset_name: graphify-darwin-x64
             exe_name: graphify
           - os: ubuntu-22.04
             arch: x64

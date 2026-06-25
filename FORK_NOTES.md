@@ -19,15 +19,18 @@ git push origin v0.8.47-test
 ```
 
 CI 会自动：
-1. 在 5 个平台（macOS arm64/x64, Linux x64/arm64, Windows x64）构建
+1. 在 4 个平台（macOS arm64, Linux x64/arm64, Windows x64）构建
 2. 计算每个二进制的 SHA256
 3. 创建 GitHub Release,资产包括：
    - `graphify-darwin-arm64`
-   - `graphify-darwin-x64`
    - `graphify-linux-arm64`
    - `graphify-linux-x64`
    - `graphify-windows-x64.exe`
    - `SHA256SUMS`
+
+> **macOS x64 说明**：GitHub Actions macos-13-x64 runner 严重排队，Apple Silicon Mac 已是主流。
+> installer 在 macOS x64 上可走降级路径：让用户装 Rosetta 2 跑 arm64 二进制（性能差异 < 5%）。
+> 后续若用户量大，可考虑加回 macos-13-x64 或用自托管 runner。
 
 ## second-brain-installer 集成
 
