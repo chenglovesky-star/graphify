@@ -31,6 +31,35 @@ for lang in [
 ]:
     hidden.append(f'tree_sitter_{lang}')
 
+# openai 后端（用于 LLM 语义抽取）及其传递依赖
+# graphify 动态导入 openai,PyInstaller 静态分析找不到,必须显式列出
+# 否则运行时报 "the 'openai' package is required but is not installed"
+for pkg in [
+    'openai',
+    'openai._types',
+    'openai._client',
+    'openai._utils',
+    'openai._models',
+    'openai._exceptions',
+    'openai._response',
+    'openai._streaming',
+    'openai.types',
+    'tiktoken',
+    'tiktoken_ext',
+    'httpx',
+    'httpx._types',
+    'httpcore',
+    'anyio',
+    'anyio._backends',
+    'anyio._backends._asyncio',
+    'sniffio',
+    'distro',
+    'jiter',
+    'pydantic',
+    'pydantic_core',
+]:
+    hidden.append(pkg)
+
 a = Analysis(
     ['graphify/__main__.py'],
     pathex=[],
