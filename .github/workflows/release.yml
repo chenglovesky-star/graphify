@@ -57,6 +57,10 @@ jobs:
           pip install pyinstaller
           # 安装基础依赖(跳过可选依赖,降低打包体积)
           pip install --no-deps -e .
+          # openai / tiktoken / httpx 是 graphify 运行时需要的(LLM 语义抽取)
+          # 必须先装,否则 PyInstaller collect_all 找不到,二进制运行时报
+          # "the 'openai' package is required but is not installed"
+          pip install openai tiktoken httpx pydantic anyio distro jiter
 
       - name: Build binary
         run: pyinstaller --noconfirm graphify.spec
