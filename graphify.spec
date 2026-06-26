@@ -41,6 +41,11 @@ tiktoken_datas, tiktoken_binaries, tiktoken_hidden = collect_all('tiktoken')
 httpx_datas, httpx_binaries, httpx_hidden = collect_all('httpx')
 
 hidden += openai_hidden + tiktoken_hidden + httpx_hidden
+
+# numpy 是 openai 间接依赖 (openai._extras._common),PyInstaller 在 Windows 上漏装
+# 显式 collect 拉进来
+numpy_datas, numpy_binaries, numpy_hidden = collect_all('numpy')
+hidden += numpy_hidden
 # 注: openai/tiktoken/httpx 的 datas 和 binaries 由 Analysis 接收
 
 a = Analysis(
