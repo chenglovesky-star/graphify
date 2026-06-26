@@ -72,7 +72,7 @@ jobs:
           ./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }} --version || \
           ./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }} --help | head -5
 
-      - name: Upload artifact (onedir 模式: 整个目录)
+      - name: Upload artifact (onedir mode - upload entire directory)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
