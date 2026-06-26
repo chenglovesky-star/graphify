@@ -68,9 +68,14 @@ jobs:
       - name: Verify binary works
         shell: bash
         run: |
-          # onedir 模式: ./dist/graphify/ 是目录,二进制在 dist/graphify/graphify
-          ./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }} --version || \
-          ./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }} --help | head -5
+          # onedir 模式: ./dist/graphify/ 是目录,binary 在 dist/graphify/<binary>
+          # Windows binary 带 .exe 后缀,其他平台不带
+          binary="./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }}"
+          if [ ! -f "$binary" ]; then
+            # Windows: .exe 后缀要再拼一次
+            binary="./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }}.exe"
+          fi
+          "$binary" --version || "$binary" --help | head -5
 
       - name: Upload artifact (onedir mode - upload entire directory)
         uses: actions/upload-artifact@v4
