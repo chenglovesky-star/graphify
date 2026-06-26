@@ -69,23 +69,35 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# onedir 模式(目录式): 不打 onefile, 而是产出一个 graphify/ 目录 + 主 binary
+# 为什么不用 onefile:
+#   1. PyInstaller onefile 把内容解包到 _MEIPASS 临时目录,graphify 用 multiprocessing
+#      fork 子进程,子进程找不到原始 binary 路径 → 报 "unknown command --multiprocessing-fork"
+#   2. onedir 模式 binary 就在固定位置,multiprocessing 工作正常
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,    # binaries 放 COLLECT,不在 EXE 里(onedir 关键)
     name='graphify',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,           # Windows 上 strip=True 会导致 python311.dll 加载失败（已知问题）
-    upx=False,             # UPX compression is unstable across platforms, skip
-    upx_exclude=[],
-    runtime_tmpdir=None,
+    strip=False,
+    upx=False,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name='graphify',
 )

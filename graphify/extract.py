@@ -12277,8 +12277,11 @@ def extract(
 
     # Phase 2: extract uncached files (parallel or sequential)
     if uncached_work:
+        # GRAPHIFY_SERIAL=1 强制串行(用于 PyInstaller 打包后 ProcessPoolExecutor
+        # 子进程找不到 binary 路径的场景)
+        force_serial = os.environ.get("GRAPHIFY_SERIAL", "").strip() in ("1", "true", "yes")
         ran_parallel = False
-        if parallel and len(uncached_work) >= _PARALLEL_THRESHOLD:
+        if parallel and not force_serial and len(uncached_work) >= _PARALLEL_THRESHOLD:
             ran_parallel = _extract_parallel(
                 uncached_work, per_file, effective_root, max_workers, total
             )
