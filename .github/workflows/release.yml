@@ -102,7 +102,9 @@ jobs:
         run: |
           rm -rf /tmp/dist && mkdir -p /tmp/dist
           for dir in artifacts/*/; do
-            artifact_name=$(basename "$dir")
+            # asset_name 在 Windows 带 .exe(graphify-windows-x64.exe),统一去掉,
+            # 使 onedir 包名跨平台一致: graphify-<platform>_onedir.tar.gz
+            artifact_name=$(basename "$dir" | sed 's/\.exe$//')
             # 找 onedir 目录: 包含 binary 和 _internal/
             onedir_dir=""
             for candidate in \
@@ -131,12 +133,14 @@ jobs:
       - name: Generate SHA256SUMS
         working-directory: /tmp/dist
         run: |
-          # onedir 模式: 打 zip 再算 sha256 (避免上传目录结构)
+          # onedir 模式: 打 tar.gz 再算 sha256
+          # 用 tar.gz 而非 zip: 三平台(mac/win bsdtar + linux GNU tar)都能 tar -xzf 解压,
+          # installer 端解压逻辑跨平台统一,无需依赖 linux 上不一定预装的 unzip
           for d in *_onedir; do
             [ -d "$d" ] || continue
-            zip -r -q "${d}.zip" "$d"
+            tar -czf "${d}.tar.gz" "$d"
             rm -rf "$d"
-            sha256sum "${d}.zip"
+            sha256sum "${d}.tar.gz"
           done > SHA256SUMS
           echo ""
           echo "=== /tmp/dist/ contents ==="
@@ -151,11 +155,13 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true
+          # 资产缺失(如命名对不上)时直接失败,避免出"看似成功实则缺包"的 release
+          fail_on_unmatched_files: true
           files: |
-            /tmp/dist/graphify-darwin-arm64_onedir.zip
-            /tmp/dist/graphify-linux-arm64_onedir.zip
-            /tmp/dist/graphify-linux-x64_onedir.zip
-            /tmp/dist/graphify-windows-x64_onedir.zip
+            /tmp/dist/graphify-darwin-arm64_onedir.tar.gz
+            /tmp/dist/graphify-linux-arm64_onedir.tar.gz
+            /tmp/dist/graphify-linux-x64_onedir.tar.gz
+            /tmp/dist/graphify-windows-x64_onedir.tar.gz
             /tmp/dist/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
