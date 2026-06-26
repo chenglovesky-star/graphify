@@ -68,13 +68,9 @@ jobs:
       - name: Verify binary works
         shell: bash
         run: |
-          # onedir 模式: ./dist/graphify/ 是目录,binary 在 dist/graphify/<binary>
-          # Windows binary 带 .exe 后缀,其他平台不带
-          binary="./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }}"
-          if [ ! -f "$binary" ]; then
-            # Windows: .exe 后缀要再拼一次
-            binary="./dist/${{ matrix.exe_name }}/${{ matrix.exe_name }}.exe"
-          fi
+          # onedir 模式: COLLECT 目录名恒为 graphify(spec name='graphify',跨平台一致)
+          # 目录内可执行文件: Windows 为 graphify.exe,其他平台为 graphify
+          binary="./dist/graphify/${{ matrix.exe_name }}"
           "$binary" --version || "$binary" --help | head -5
 
       - name: Upload artifact (onedir mode - upload entire directory)
@@ -82,7 +78,8 @@ jobs:
         with:
           name: ${{ matrix.asset_name }}
           # onedir 产物是 dist/graphify/ 目录(包含 binary + _internal/),必须传目录而非文件
-          path: dist/${{ matrix.exe_name }}/
+          # 目录名跨平台恒为 graphify(spec COLLECT name='graphify')
+          path: dist/graphify/
           if-no-files-found: error
           retention-days: 7
 
