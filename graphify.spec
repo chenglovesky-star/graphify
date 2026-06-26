@@ -9,12 +9,15 @@
 # Used by second-brain-installer to ship graphify as a self-contained binary.
 
 import sys
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import (
+    collect_submodules,
+    collect_data_files,
+    collect_all,
+)
 
 block_cipher = None
 
-# Hidden imports: explicit tree-sitter language packages that PyInstaller's
-# static analysis misses. Each corresponds to a dependency in pyproject.toml.
+# Hidden imports: 显式列出 PyInstaller 静态分析可能漏掉的包
 hidden = [
     'graphify',
     'graphify.__main__',
@@ -31,40 +34,20 @@ for lang in [
 ]:
     hidden.append(f'tree_sitter_{lang}')
 
-# openai 后端（用于 LLM 语义抽取）及其传递依赖
-# graphify 动态导入 openai,PyInstaller 静态分析找不到,必须显式列出
-# 否则运行时报 "the 'openai' package is required but is not installed"
-for pkg in [
-    'openai',
-    'openai._types',
-    'openai._client',
-    'openai._utils',
-    'openai._models',
-    'openai._exceptions',
-    'openai._response',
-    'openai._streaming',
-    'openai.types',
-    'tiktoken',
-    'tiktoken_ext',
-    'httpx',
-    'httpx._types',
-    'httpcore',
-    'anyio',
-    'anyio._backends',
-    'anyio._backends._asyncio',
-    'sniffio',
-    'distro',
-    'jiter',
-    'pydantic',
-    'pydantic_core',
-]:
-    hidden.append(pkg)
+# openai / tiktoken 用 collect_all 自动拉所有子模块+资源(更可靠)
+# PyInstaller hiddenimports 不会拉传递依赖;collect_all 一次性打包
+openai_datas, openai_binaries, openai_hidden = collect_all('openai')
+tiktoken_datas, tiktoken_binaries, tiktoken_hidden = collect_all('tiktoken')
+httpx_datas, httpx_binaries, httpx_hidden = collect_all('httpx')
+
+hidden += openai_hidden + tiktoken_hidden + httpx_hidden
+# 注: openai/tiktoken/httpx 的 datas 和 binaries 由 Analysis 接收
 
 a = Analysis(
     ['graphify/__main__.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
+    binaries=openai_binaries + tiktoken_binaries + httpx_binaries,
+    datas=openai_datas + tiktoken_datas + httpx_datas,
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
